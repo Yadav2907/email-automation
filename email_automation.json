@@ -1,0 +1,212 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "readStatus": "unread"
+        }
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "85ed6c64-9c56-4fa8-84a9-7b0727617f7e",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Tc2HZpIdmuEMPQQ6",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=From: {{ $json.From }}\nSubject: {{ $json.Subject }}\nBody: {{ $json.snippet }}",
+        "options": {
+          "systemMessage": "You are a helpYou are an email assistant. You will be given the sender, subject, and body of an incoming email.\n\nDecide whether a reply is needed:\n- Yes, if the sender explicitly asks for a reply, confirmation, or response\n- Yes, if the email is a personal/human message (not automated, not a newsletter, not a notification)\n- Yes, if it's from a recruiter asking you to confirm something (e.g. interview time, availability)\n- Yes, if it's an informal/casual email from a known contact that would normally get an acknowledgment\n- No, for automated notifications, newsletters, marketing, receipts, or anything that clearly doesn't expect a response\n\nIf a reply is needed, write a complete, ready-to-send reply matching the tone:\n- Formal/professional for recruiters and business contacts\n- Friendly/casual for informal personal emails\n\nRespond ONLY in this exact format, nothing else:\nNEEDS_REPLY: yes or no\nREPLY: <the reply text, or \"none\" if no reply is needed>ful assistant"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "c5b9c497-d848-4b73-aaa8-01066df2c179",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        80,
+        208
+      ],
+      "id": "7bbf1aa6-e707-42f2-b171-9afc1c166b46",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "f4drrISumT0sC7y8",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "eddb2498-21cf-4ccb-88e6-251d33d33b93",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "NEEDS_REPLY: yes",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        560,
+        0
+      ],
+      "id": "06a3b8c7-2c8a-487e-8265-426bd9424bd2",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "emailType": "text",
+        "message": "={{ $('AI Agent').item.json.output.split('REPLY:')[1].trim() }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        784,
+        -80
+      ],
+      "id": "135c2e63-8dbc-405d-83bc-6e1c9db0a1e8",
+      "name": "Reply to a message",
+      "webhookId": "7068c70e-836e-4d56-91e0-7a9b0da4669f",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Tc2HZpIdmuEMPQQ6",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "markAsRead",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}"
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        656,
+        208
+      ],
+      "id": "80f9ce73-74e2-4129-8af8-8c07b771b4e8",
+      "name": "Mark a message as read",
+      "webhookId": "327f719e-e7b9-4b9e-a465-37fd81ff80d5",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Tc2HZpIdmuEMPQQ6",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mark a message as read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Reply to a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "cf9c159d-2592-4ee0-8730-eccae81cf3ff",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4bd9f677ceaa70b423ae4a041c64c5955d9f4a260358f24cf6b090a3e990e430"
+  },
+  "nodeGroups": [],
+  "id": "6SVMlPLQl2HjgNyL",
+  "tags": []
+}
